@@ -87,6 +87,12 @@ async function convert(
         out.push(`-b:v ${opts.videoBitrate}`);
       }
       if (videoCodec === "prores_ks") out.push("-profile:v 3");
+      if (
+        videoCodec === "libx265" &&
+        (outputName.endsWith(".mp4") || outputName.endsWith(".mov"))
+      ) {
+        out.push("-tag:v hvc1");
+      }
     }
 
     const audioCodecMap = {
