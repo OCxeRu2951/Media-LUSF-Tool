@@ -1,4 +1,4 @@
-const { exec } = require("child_process");
+const { execFile } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -55,23 +55,47 @@ async function selectFile() {
 
 async function getFileInfo(inputPath) {
   return new Promise((resolve, reject) => {
-    const cmd = `ffprobe -v quiet -print_format json -show_format -show_streams "${inputPath}"`;
-    exec(cmd, (err, stdout) => {
-      if (err) return reject("ffprobe エラー: " + err);
-      resolve(JSON.parse(stdout));
-    });
+    execFile(
+      "ffprobe",
+      [
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        inputPath,
+      ],
+      { maxBuffer: 1024 * 1024 * 10 },
+      (err, stdout) => {
+        if (err) return reject("ffprobe エラー: " + err);
+        resolve(JSON.parse(stdout));
+      },
+    );
   });
 }
 
 async function checkLUFS(inputPath, targetLUFS = -14) {
   return new Promise((resolve, reject) => {
-    const cmd = `ffmpeg -i "${inputPath}" -af loudnorm=I=${targetLUFS}:print_format=json -f null -`;
-    exec(cmd, (err, stdout, stderr) => {
-      const output = stderr || stdout;
-      const jsonMatch = output.match(/\{[\s\S]*?\}/);
-      if (!jsonMatch) return reject("loudnorm の解析に失敗しました");
-      resolve(JSON.parse(jsonMatch[0]));
-    });
+    execFile(
+      "ffmpeg",
+      [
+        "-i",
+        inputPath,
+        "-af",
+        `loudnorm=I=${targetLUFS}:print_format=json`,
+        "-f",
+        "null",
+        "-",
+      ],
+      { maxBuffer: 1024 * 1024 * 10 },
+      (err, stdout, stderr) => {
+        const output = stderr || stdout;
+        const jsonMatch = output.match(/\{[\s\S]*?\}/);
+        if (!jsonMatch) return reject("loudnorm の解析に失敗しました");
+        resolve(JSON.parse(jsonMatch[0]));
+      },
+    );
   });
 }
 
@@ -97,7 +121,9 @@ async function checkLUFS(inputPath, targetLUFS = -14) {
     console.log(`フォーマット: ${format.format_long_name}`);
     console.log(`再生時間: ${parseFloat(format.duration).toFixed(2)} 秒`);
     console.log(`サイズ: ${(format.size / (1024 * 1024)).toFixed(2)} MB`);
-    console.log(`全体のビットレート: ${Math.round(format.bit_rate / 1000)} kbps`);
+    console.log(
+      `全体のビットレート: ${Math.round(format.bit_rate / 1000)} kbps`,
+    );
 
     console.log("\nオーディオ詳細");
     console.log("-".repeat(40));

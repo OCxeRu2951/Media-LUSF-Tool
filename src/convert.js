@@ -1,7 +1,7 @@
 const ffmpeg = require("fluent-ffmpeg");
 const path = require("path");
 const fs = require("fs");
-const { exec } = require("child_process");
+const { execFile } = require("child_process");
 const readline = require("readline");
 const config = require("./json/config.json");
 
@@ -47,12 +47,25 @@ async function selectFile() {
 
 async function measureLoudness(inputPath, targetLUFS = -14) {
   return new Promise((resolve, reject) => {
-    const cmd = `ffmpeg -i "${inputPath}" -af loudnorm=I=${targetLUFS}:print_format=json -f null - 2>&1`;
-    exec(cmd, (err, stdout) => {
-      const match = stdout.match(/\{[\s\S]*?\}/);
-      if (!match) return reject("測定データの取得に失敗しました");
-      resolve(JSON.parse(match[0]));
-    });
+    execFile(
+      "ffmpeg",
+      [
+        "-i",
+        inputPath,
+        "-af",
+        `loudnorm=I=${targetLUFS}:print_format=json`,
+        "-f",
+        "null",
+        "-",
+      ],
+      { maxBuffer: 1024 * 1024 * 10 },
+      (err, stdout, stderr) => {
+        const output = stderr || stdout;
+        const match = output.match(/\{[\s\S]*?\}/);
+        if (!match) return reject("測定データの取得に失敗しました");
+        resolve(JSON.parse(match[0]));
+      },
+    );
   });
 }
 
